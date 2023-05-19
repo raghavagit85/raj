@@ -1,0 +1,109 @@
+{
+	"name": "df_analytical",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Ds_prod",
+						"type": "DatasetReference"
+					},
+					"name": "product"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Ds_rank",
+						"type": "DatasetReference"
+					},
+					"name": "sink"
+				},
+				{
+					"dataset": {
+						"referenceName": "Ds_rank",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				},
+				{
+					"dataset": {
+						"referenceName": "Ds_rank",
+						"type": "DatasetReference"
+					},
+					"name": "sink2"
+				}
+			],
+			"transformations": [
+				{
+					"name": "rank"
+				},
+				{
+					"name": "window"
+				},
+				{
+					"name": "filter"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          ProductKey as short,",
+				"          ProductSubcategoryKey as short,",
+				"          ProductSKU as string,",
+				"          ProductName as string,",
+				"          ModelName as string,",
+				"          ProductDescription as string,",
+				"          ProductColor as string,",
+				"          ProductSize as string,",
+				"          ProductStyle as string,",
+				"          ProductCost as double,",
+				"          ProductPrice as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> product",
+				"product rank(desc(ProductCost, true),",
+				"     caseInsensitive: true,",
+				"     output(prod_cost_rank as long),",
+				"     dense: true) ~> rank",
+				"product window(over(ProductSubcategoryKey),",
+				"     asc(ProductSubcategoryKey, true),",
+				"     total_products_values = sum(ProductPrice),",
+				"          previous_prod_values = lag(ProductPrice, 1, 0),",
+				"          next_value = lead(ProductPrice, 2, 0)) ~> window",
+				"product filter(ProductCost<=2000) ~> filter",
+				"rank sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['rank_dence.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     partitionBy('hash', 1)) ~> sink",
+				"window sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['window_data.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 3,",
+				"     partitionBy('hash', 1)) ~> sink1",
+				"filter sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['filter.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     partitionBy('hash', 1)) ~> sink2"
+			]
+		}
+	}
+}
